@@ -9,7 +9,7 @@
 //    "API resolved without sending a response" 警告
 //  - persist() 必须在 res.end 真正 flush 之前完成：serverless 实例在响应结束后
 //    可能立即被冻结/回收，之后的异步写入会丢失。因此这里 monkey-patch res.end。
-import { hydrate, persist, useRedis } from '../server/db.js';
+import { hydrate, persist, useRedis, useGithubStore } from '../server/db.js';
 import { handleApi } from '../server/api.js';
 
 export const config = {
@@ -17,12 +17,12 @@ export const config = {
 };
 
 export default async function handler(req, res) {
-  // 云端守卫：Vercel 上未配置 Upstash 时直接返回 503，
+  // 云端守卫：Vercel 上未配置任何存储后端时直接返回 503，
   // 避免回退到文件模式在只读文件系统上崩溃
-  if (process.env.VERCEL && !useRedis) {
+  if (process.env.VERCEL && !useRedis && !useGithubStore) {
     res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
-      error: '云端数据库未配置：请在 Vercel 环境变量中设置 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN',
+      error: '云端数据库未配置：请设置 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN（或 GITHUB_DATA_TOKEN 兜底）',
       path: (req.url || '/').split('?')[0],
     }));
     return;

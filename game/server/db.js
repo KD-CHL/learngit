@@ -8,15 +8,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { kvGet, kvSet } from './redis.js';
+import { kvGet, kvSet, useRedis, useGithubStore } from './kv.js';
+export { useRedis, useGithubStore };
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = process.env.GITGAME_DATA_DIR || path.join(__dirname, '..', 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 
-// 是否启用 Redis（云端）存储
-export const useRedis = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+// 云端存储 = Upstash Redis（首选）或 GitHub 仓库（兜底）
+const useCloud = useRedis || useGithubStore;
 const R_USERS = 'gitgame:users';
 const R_SESSIONS = 'gitgame:sessions';
 
@@ -73,7 +74,7 @@ export function loadUsers() {
 }
 
 export function saveUsers() {
-  if (useRedis) { usersDirty = true; return; } // 云端：延迟到 persist() 写回
+  if (useCloud) { usersDirty = true; return; } // 云端：延迟到 persist() 写回
   writeJson(USERS_FILE, users);
 }
 export function getUsers() { return users; }
@@ -146,7 +147,7 @@ export function loadSessions() {
 }
 
 export function saveSessions() {
-  if (useRedis) { sessionsDirty = true; return; } // 云端：延迟到 persist() 写回
+  if (useCloud) { sessionsDirty = true; return; } // 云端：延迟到 persist() 写回
   writeJson(SESSIONS_FILE, sessions);
 }
 
@@ -178,7 +179,7 @@ export function destroySession(token) {
 /* ============ serverless 生命周期（Vercel） ============ */
 // 每个请求开始时调用：把全量数据载入内存
 export async function hydrate() {
-  if (!useRedis) { loadUsers(); loadSessions(); return; }
+  if (!useCloud) { loadUsers(); loadSessions(); return; }
   users = (await kvGet(R_USERS)) || [];
   sessions = (await kvGet(R_SESSIONS)) || {};
   // 首次运行：写入默认管理员 admin / admin123
@@ -195,9 +196,9 @@ export async function hydrate() {
   pruneSessions();
 }
 
-// 请求结束时调用：把脏数据写回存储（Redis 模式）
+// 请求结束时调用：把脏数据写回存储（Redis / GitHub 仓库）
 export async function persist() {
-  if (!useRedis) return; // 文件模式已在每次改动时写盘
+  if (!useCloud) return; // 文件模式已在每次改动时写盘
   if (usersDirty) { await kvSet(R_USERS, users); usersDirty = false; }
   if (sessionsDirty) { await kvSet(R_SESSIONS, sessions); sessionsDirty = false; }
 }

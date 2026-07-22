@@ -18,7 +18,7 @@ function getProxy() {
 }
 
 // 发起 HTTPS 请求并解析 JSON（自动按需走 CONNECT 代理隧道）
-function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
+export function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(urlStr);
     const reqHeaders = {
@@ -57,7 +57,10 @@ function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
 
     // 建立到目标的 TLS 连接（直接或经代理）
     const openTls = (rawSocket) => {
-      const tlsSocket = tls.connect({ socket: rawSocket, servername: u.hostname }, () => send(tlsSocket));
+      const opts = { servername: u.hostname };
+      if (rawSocket) opts.socket = rawSocket;          // 代理隧道已建好 TCP
+      else { opts.host = u.hostname; opts.port = u.port || 443; } // 直连：自行建立 TCP
+      const tlsSocket = tls.connect(opts, () => send(tlsSocket));
       tlsSocket.on('error', reject);
     };
 
