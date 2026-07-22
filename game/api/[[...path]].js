@@ -8,7 +8,7 @@
 //    "API resolved without sending a response" 警告
 //  - persist() 必须在 res.end 真正 flush 之前完成：serverless 实例在响应结束后
 //    可能立即被冻结/回收，之后的异步写入会丢失。因此这里 monkey-patch res.end。
-import { hydrate, persist } from '../server/db.js';
+import { hydrate, persist, useRedis } from '../server/db.js';
 import { handleApi } from '../server/api.js';
 
 export const config = {
@@ -16,6 +16,13 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  // 云端守卫：Vercel 上未配置 Upstash 时直接返回 503，
+  // 避免回退到文件模式在只读文件系统上崩溃
+  if (process.env.VERCEL && !useRedis) {
+    res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: '云端数据库未配置：请在 Vercel 环境变量中设置 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN' }));
+    return;
+  }
   // 确保 persist() 在响应 flush 前完成（只挂一次）
   let endPromise = null;
   const origEnd = res.end.bind(res);
