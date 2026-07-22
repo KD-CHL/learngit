@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test/levels.test.js"
+    "test": "node test/levels.test.js && node test/auth.test.js",
+    "test:levels": "node test/levels.test.js",
+    "test:auth": "node test/auth.test.js"
   },
   "keywords": ["git", "game", "learning", "terminal", "education"],
   "license": "MIT",

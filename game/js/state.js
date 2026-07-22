@@ -13,6 +13,11 @@ export const app = {
   totalCmds: 0,          // 累计命令数
   soundOn: true,
   sandbox: false,        // 自由模式
+  currentUser: null,     // 当前登录用户 {id, username, role, progress}
   // 命令执行后的回调钩子（由 ui.js 注入），解耦 commands 与 ui
   afterCommand: null,    // (shouldCheck) => void
 };
+
+export function isAdmin() {
+  return app.currentUser && app.currentUser.role === 'admin';
+}

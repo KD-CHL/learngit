@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>注册 · Git 闯关练习</title>
+<link rel="stylesheet" href="./css/auth.css">
+</head>
+<body>
+<div class="auth-wrap">
+
+  <!-- 左侧品牌区 -->
+  <div class="brand">
+    <div>
+      <a class="logo" href="./index.html"><span class="mark">⎇</span> Git 闯关练习</a>
+      <div class="tagline">LEARN GIT BY DOING · 像玩游戏一样学会 Git</div>
+    </div>
+    <div class="commit-chain" id="commitChain"></div>
+    <div class="foot">
+      <a href="../README.md">关于项目</a>
+      <a href="./index.html">返回游戏</a>
+    </div>
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+  </div>
+
+  <!-- 右侧表单区 -->
+  <div class="form-side">
+    <div class="form-card">
+      <div class="mobile-logo"><span class="mark">⎇</span> Git 闯关练习</div>
+
+      <h1>创建账号</h1>
+      <p class="sub">注册后即可开始闯关，进度自动云端保存</p>
+
+      <form id="authForm" novalidate>
+        <div class="field">
+          <label for="username">用户名</label>
+          <div class="input-box">
+            <input id="username" type="text" placeholder="2-16 位字母/数字/中文" autocomplete="username">
+          </div>
+          <div class="f-err"></div>
+        </div>
+
+        <div class="field">
+          <label for="password">密码</label>
+          <div class="input-box">
+            <input id="password" type="password" placeholder="至少 6 位" autocomplete="new-password">
+            <button type="button" class="toggle-eye" id="eyeBtn" title="显示/隐藏密码">👁</button>
+          </div>
+          <div class="f-err"></div>
+        </div>
+
+        <div class="field">
+          <label for="confirm">确认密码</label>
+          <div class="input-box">
+            <input id="confirm" type="password" placeholder="再次输入密码" autocomplete="new-password">
+          </div>
+          <div class="f-err"></div>
+        </div>
+
+        <div class="alert" id="alert"></div>
+
+        <button class="btn-primary" id="submitBtn" type="submit">注 册</button>
+      </form>
+
+      <div class="switch-line">已有账号？<a href="./login.html">直接登录</a></div>
+    </div>
+  </div>
+
+</div>
+<script type="module">
+  import { initAuthPage } from './js/authpage.js';
+  initAuthPage('signup');
+</script>
+</body>
+</html>
