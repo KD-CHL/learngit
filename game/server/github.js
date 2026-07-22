@@ -1,12 +1,10 @@
 // GitHub OAuth 后端 —— code 换 token、拉取用户信息
-// 本环境访问 github.com 需要走 HTTP 代理（127.0.0.1:7897），
-// 而 Node 的 https 模块不会自动读取代理环境变量，
-// 所以这里实现了 CONNECT 隧道：先经代理建立到目标的 TCP 通道，再在其上做 TLS。
-import http from 'node:http';
-import https from 'node:https';
-import tls from 'node:tls';
+// HTTP 客户端用全局 fetch（底层即 undici）。
+// 注意：不能用 node:http 裸请求 GitHub —— 其请求指纹会被 GitHub WAF 拦截
+// （返回 "Whoa there! You have sent an invalid request" HTML 400），fetch 则正常。
+// 本地开发若配置了 HTTPS_PROXY 且安装了 undici 包会走 ProxyAgent；否则直连
+// （Vercel 上无代理环境变量，始终直连）。
 import crypto from 'node:crypto';
-import { URL } from 'node:url';
 
 export const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID || '';
 export const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET || '';
@@ -17,70 +15,36 @@ function getProxy() {
     || process.env.HTTP_PROXY || process.env.http_proxy || null;
 }
 
-// 发起 HTTPS 请求并解析 JSON（自动按需走 CONNECT 代理隧道）
-export function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(urlStr);
-    const reqHeaders = {
-      'User-Agent': 'git-game-server',
-      'Accept': 'application/vnd.github+json',
-      ...headers,
-    };
-    let payload = null;
-    if (body !== undefined) {
-      payload = typeof body === 'string' ? body : JSON.stringify(body);
-      reqHeaders['Content-Type'] = 'application/json';
-      reqHeaders['Content-Length'] = Buffer.byteLength(payload);
-    }
+// 发起 HTTPS 请求并解析 JSON（代理为尽力而为：undici 不可用时自动直连）
+export async function httpsJson(urlStr, { method = 'GET', headers = {}, body } = {}) {
+  const reqHeaders = {
+    'User-Agent': 'git-game-server',
+    'Accept': 'application/vnd.github+json',
+    ...headers,
+  };
+  let payload;
+  if (body !== undefined) {
+    payload = typeof body === 'string' ? body : JSON.stringify(body);
+    reqHeaders['Content-Type'] = 'application/json';
+  }
 
-    // TLS 通道就绪后，在其上发送明文 HTTP 请求
-    const send = (tlsSocket) => {
-      const req = http.request({
-        method,
-        createConnection: () => tlsSocket,
-        host: u.hostname,
-        path: u.pathname + u.search,
-        headers: reqHeaders,
-      }, res => {
-        let raw = '';
-        res.on('data', c => raw += c);
-        res.on('end', () => {
-          let data;
-          try { data = raw ? JSON.parse(raw) : {}; } catch { data = raw; }
-          resolve({ status: res.statusCode, data });
-        });
-      });
-      req.on('error', reject);
-      if (payload) req.write(payload);
-      req.end();
-    };
+  const options = { method, headers: reqHeaders };
+  if (payload !== undefined) options.body = payload;
 
-    // 建立到目标的 TLS 连接（直接或经代理）
-    const openTls = (rawSocket) => {
-      const opts = { servername: u.hostname };
-      if (rawSocket) opts.socket = rawSocket;          // 代理隧道已建好 TCP
-      else { opts.host = u.hostname; opts.port = u.port || 443; } // 直连：自行建立 TCP
-      const tlsSocket = tls.connect(opts, () => send(tlsSocket));
-      tlsSocket.on('error', reject);
-    };
+  const proxy = getProxy();
+  if (proxy) {
+    try {
+      // 拼接 specifier 避免打包器静态解析这个可选依赖
+      const undici = await import('und' + 'ici');
+      options.dispatcher = new undici.ProxyAgent({ uri: proxy });
+    } catch { /* undici 未安装 → 直连 */ }
+  }
 
-    const proxy = getProxy();
-    if (proxy) {
-      const p = new URL(proxy);
-      const conn = http.request({
-        host: p.hostname, port: p.port || 80, method: 'CONNECT',
-        path: `${u.hostname}:443`,
-      });
-      conn.on('connect', (res, rawSocket) => {
-        if (res.statusCode !== 200) return reject(new Error('代理 CONNECT 失败: ' + res.statusCode));
-        openTls(rawSocket);
-      });
-      conn.on('error', reject);
-      conn.end();
-    } else {
-      openTls(null); // tls.connect 无 socket 时自行建立 TCP
-    }
-  });
+  const res = await fetch(urlStr, options);
+  const text = await res.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; } catch { data = text; }
+  return { status: res.status, data };
 }
 
 // 用授权码换取访问令牌
