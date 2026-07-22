@@ -162,6 +162,65 @@ export const LEVELS = [
     hints: ['git tag v1.0.0', 'git tag'],
     setup(g) { g.reset(); seed(g); commitTo(g, 'main', 'release prep', { 'hello.txt': 'hello git\nfinal\n' }); },
     check(g) { return g.tags['v1.0.0'] !== undefined; },
-    done: '🏆 全部通关！标签是不可变的版本快照点，真实项目用 git tag -a v1.0.0 -m "..." 创建附注标签。'
+    done: '标签是不可变的版本快照点，真实项目用 git tag -a v1.0.0 -m "..." 创建附注标签。准备好进入高级篇了吗？'
+  },
+  {
+    stage: '06 高级', id: '06', title: '撤销已发布的提交 revert', par: 1,
+    desc: 'feature.txt 所在的提交已经"发布"了，不能再用 reset 改写历史。用 <code>git revert HEAD</code> 生成一个新提交，反向抵消上一次提交的改动。',
+    hints: ['git log --oneline', 'git revert HEAD'],
+    setup(g) {
+      g.reset(); seed(g);
+      commitTo(g, 'main', 'feat: add feature', { 'hello.txt': 'hello git\n', 'feature.txt': 'shiny feature\n' });
+    },
+    check(g) {
+      const head = g.commits[g.branches.main];
+      return g.used.has('revert') && head && head.tree['feature.txt'] === undefined
+        && head.tree['hello.txt'] !== undefined && head.msg.startsWith('Revert');
+    },
+    done: 'revert 不删除历史，而是新增一个"反向提交"。这是撤销已 push 提交的标准做法——对协作友好。'
+  },
+  {
+    stage: '06 高级', id: '06', title: 'reflog 找回丢失的提交', par: 2,
+    desc: '糟糕！刚才误执行了 <code>git reset --hard HEAD~1</code>，提交 "important work" 从分支上消失了。别慌：先用 <code>git reflog</code> 查看 HEAD 的移动历史，找到丢失提交的 hash，再用 <code>git reset --hard &lt;hash&gt;</code> 把它找回来。',
+    hints: ['git reflog', 'git reset --hard <丢失提交的 hash 前 7 位>'],
+    setup(g) {
+      g.reset(); seed(g);
+      const a = g.branches.main;
+      const b = commitTo(g, 'main', 'add feature', { 'hello.txt': 'hello git\n', 'feature.txt': 'f\n' });
+      const c = commitTo(g, 'main', 'important work', { 'hello.txt': 'hello git\n', 'feature.txt': 'f\n', 'report.txt': 'precious\n' });
+      // 模拟误操作 reset --hard HEAD~1：main 回退到 b，c "丢失"
+      g.branches.main = b;
+      const tr = g.snap(g.commits[b].tree); g.files = tr; g.index = g.snap(tr);
+      // 补上 reflog（最新在前），还原真实事故现场
+      g.reflog = [
+        { hash: b, action: 'reset (hard): moving to HEAD~1' },
+        { hash: c, action: 'commit: important work' },
+        { hash: b, action: 'commit: add feature' },
+        { hash: a, action: 'commit (initial): first commit' },
+      ];
+    },
+    check(g) {
+      const head = g.commits[g.branches.main];
+      return g.used.has('reflog') && g.used.has('reset') && head && head.msg === 'important work';
+    },
+    done: '只要提交过，git 几乎不会真的"弄丢"它。reflog 记录 HEAD 的每次移动（默认保留 90 天），是误删提交后的救命稻草。'
+  },
+  {
+    stage: '06 高级', id: '06', title: 'soft reset 压缩提交', par: 2,
+    desc: 'main 上最近两个提交是同一功能的碎片。用 <code>git reset --soft HEAD~2</code> 回退指针但保留改动，再 <code>git commit -m "feat: complete feature"</code> 把它们压缩成一个干净的提交。',
+    hints: ['git reset --soft HEAD~2', 'git commit -m "feat: complete feature"'],
+    setup(g) {
+      g.reset(); seed(g);
+      commitTo(g, 'main', 'feat: part 1', { 'hello.txt': 'hello git\n', 'part1.txt': 'part 1\n' });
+      commitTo(g, 'main', 'feat: part 2', { 'hello.txt': 'hello git\n', 'part1.txt': 'part 1\n', 'part2.txt': 'part 2\n' });
+    },
+    check(g) {
+      const head = g.commits[g.branches.main];
+      if (!head || !g.used.has('reset') || !g.used.has('commit')) return false;
+      let n = 0, c = g.branches.main;
+      while (c) { n++; c = g.commits[c].parents[0]; }
+      return n === 2 && head.tree['part1.txt'] !== undefined && head.tree['part2.txt'] !== undefined;
+    },
+    done: '--soft 只移动分支指针，改动留在暂存区，配合 commit 就能把多个提交压缩成一个——整理提交历史的必备技能。'
   },
 ];

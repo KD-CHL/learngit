@@ -12,7 +12,15 @@ export class GitEngine {
     this.tags = {};
     this.used = new Set();      // 本关用过的子命令
     this.mergeInProgress = null;
+    this.reflog = [];           // [{hash, action}] 最新在前，模拟 git reflog
     this._n = 0;
+  }
+
+  // 记录一次 HEAD 移动（reflog 最新在前）
+  pushReflog(hash, action) {
+    if (!hash) return;
+    this.reflog.unshift({ hash, action });
+    if (this.reflog.length > 100) this.reflog.length = 100;
   }
 
   get headCommit() {

@@ -236,3 +236,65 @@ header{
   font-size:13px;z-index:150;transition:.3s;pointer-events:none;box-shadow:0 10px 30px rgba(0,0,0,.5);
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ============ 首页功能卡片 ============ */
+.feature-row{display:flex;justify-content:center;gap:14px;margin-top:20px;flex-wrap:wrap}
+.feature-card{
+  display:flex;flex-direction:column;align-items:center;gap:3px;min-width:130px;
+  background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px 18px;
+  color:var(--text);cursor:pointer;transition:.2s;font-family:inherit;
+}
+.feature-card:hover{border-color:var(--border-hi);transform:translateY(-2px);background:var(--panel2)}
+.feature-card .fc-icon{font-size:24px}
+.feature-card b{font-size:14px}
+.feature-card .fc-sub{font-size:11px;color:var(--dim)}
+
+/* ============ 通用面板模态 ============ */
+.panel-modal{max-width:640px;width:94%;max-height:82vh;overflow-y:auto;text-align:left;padding:26px 30px}
+.panel-modal h2{font-size:19px;margin-bottom:4px}
+.panel-modal .sh-sub{font-size:12px;color:var(--dim);margin-bottom:16px}
+.panel-modal .close-x{float:right;cursor:pointer;color:var(--dim);font-size:18px;background:none;border:none}
+.pm-body{font-size:13px}
+.pm-loading,.pm-empty{color:var(--dim);text-align:center;padding:26px 0;font-size:13px}
+
+/* ============ 排行榜 ============ */
+.lb-my{font-size:13px;color:var(--dim);margin-bottom:12px}
+.lb-my b{color:var(--teal);font-size:15px}
+.lb-table{width:100%;border-collapse:collapse}
+.lb-table th{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;text-align:left;padding:6px 8px;border-bottom:1px solid var(--border)}
+.lb-table td{padding:8px;border-bottom:1px solid rgba(45,51,59,.5);font-size:13px}
+.lb-table tr.me td{background:rgba(63,185,80,.08)}
+.lb-rank{width:34px;font-size:15px}
+.lb-name{font-weight:600}
+.lb-stars{color:var(--amber);font-family:var(--mono)}
+.lb-dim{color:var(--dim);font-family:var(--mono)}
+
+/* ============ 个人统计 ============ */
+.st-top{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.st-ring{position:relative;width:140px;height:140px;flex-shrink:0}
+.st-ring-txt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.st-ring-txt b{font-size:24px;font-family:var(--mono);background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.st-ring-txt span{font-size:11px;color:var(--dim)}
+.st-nums{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-width:200px}
+.st-num{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column}
+.st-num b{font-size:17px;font-family:var(--mono);color:var(--text)}
+.st-num span{font-size:11px;color:var(--dim)}
+.st-h{font-size:12px;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin:16px 0 8px}
+.st-stage,.st-cmd{display:flex;align-items:center;gap:10px;padding:4px 0}
+.st-name,.st-cmd-name{width:110px;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st-cmd-name{font-family:var(--mono);color:var(--amber)}
+.st-bar{flex:1;height:8px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden}
+.st-fill{height:100%;background:var(--grad);border-radius:4px;transition:width .4s}
+.st-fill.alt{background:linear-gradient(90deg,#58a6ff,#2dd4bf)}
+.st-val{width:52px;text-align:right;font-size:12px;font-family:var(--mono);color:var(--dim)}
+
+/* ============ 成就墙 ============ */
+.ach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.ach-card{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:12px;padding:16px 12px;
+  display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;opacity:.45;filter:grayscale(.8);transition:.2s;
+}
+.ach-card.on{opacity:1;filter:none;border-color:var(--border-hi);background:rgba(63,185,80,.06)}
+.ach-card .ach-icon{font-size:30px}
+.ach-card b{font-size:13px}
+.ach-card span{font-size:11px;color:var(--dim);line-height:1.5}

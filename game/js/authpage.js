@@ -102,4 +102,27 @@ export function initAuthPage(mode) {
   });
 
   refreshChain();
+
+  // GitHub 登录：后端配置可用时才显示按钮
+  setupGithubLogin();
+}
+
+async function setupGithubLogin() {
+  const btn = document.getElementById('githubBtn');
+  if (!btn) return;
+  try {
+    const res = await fetch('/api/auth/github/config');
+    const cfg = await res.json();
+    if (!cfg.enabled) return;
+    btn.style.display = 'flex';
+    // 回调地址 = 当前站点下的 github-callback.html
+    const redirectUri = location.origin + '/github-callback.html';
+    window.githubLogin = () => {
+      const url = 'https://github.com/login/oauth/authorize'
+        + '?client_id=' + encodeURIComponent(cfg.clientId)
+        + '&redirect_uri=' + encodeURIComponent(redirectUri)
+        + '&scope=read:user';
+      location.href = url;
+    };
+  } catch { /* 后端不可达时保持隐藏 */ }
 }

@@ -1,9 +1,10 @@
 // API 层 —— 认证 / 进度 / 管理接口
 // 约定：客户端把会话 token 放在 localStorage，请求头 Authorization: Bearer <token>
 import {
-  findUserByUsername, findUserById, createUser, updateUser, deleteUser,
+  findUserByUsername, findUserById, findUserByGithubId, createUser, createGithubUser, updateUser, deleteUser,
   getUsers, publicUser, verifyPassword, createSession, getSession, destroySession,
 } from './db.js';
+import { githubEnabled, GITHUB_CLIENT_ID, exchangeCode, fetchGithubUser } from './github.js';
 
 const VALID_ROLES = ['admin', 'player'];
 
@@ -88,6 +89,33 @@ export async function handleApi(req, res, urlPath) {
     return sendJson(res, 200, { user: publicUser(user) });
   }
 
+  /* ---------- GitHub OAuth ---------- */
+  if (urlPath === '/api/auth/github/config' && method === 'GET') {
+    return sendJson(res, 200, { enabled: githubEnabled(), clientId: GITHUB_CLIENT_ID });
+  }
+
+  if (urlPath === '/api/auth/github' && method === 'POST') {
+    if (!githubEnabled())
+      return sendJson(res, 503, { error: 'GitHub 登录未配置（需设置 GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET）' });
+    const { code } = await readBody(req);
+    if (!code) return sendJson(res, 400, { error: '缺少授权码 code' });
+    try {
+      const accessToken = await exchangeCode(String(code));
+      const gh = await fetchGithubUser(accessToken);
+      // 优先按 githubId 关联；找不到则新建（用户名冲突时自动加后缀）
+      let user = findUserByGithubId(gh.id);
+      if (!user) {
+        let name = gh.login;
+        while (findUserByUsername(name)) name += '_gh';
+        user = createGithubUser(name, gh.id);
+      }
+      const token = createSession(user.id);
+      return sendJson(res, 200, { token, user: publicUser(user) });
+    } catch (e) {
+      return sendJson(res, 502, { error: 'GitHub 登录失败：' + e.message });
+    }
+  }
+
   /* ---------- 进度（登录即可） ---------- */
   if (urlPath === '/api/progress' && method === 'POST') {
     const user = requireAuth(req, res);
@@ -95,8 +123,32 @@ export async function handleApi(req, res, urlPath) {
     const body = await readBody(req);
     const levelStars = Array.isArray(body.levelStars) ? body.levelStars.map(n => Math.max(0, Math.min(3, Number(n) || 0))) : [];
     const totalCmds = Math.max(0, Number(body.totalCmds) || 0);
-    updateUser(user.id, { progress: { levelStars, totalCmds } });
+    // 命令频次：只保留 {字符串: 非负整数}
+    const cmdUsage = {};
+    if (body.cmdUsage && typeof body.cmdUsage === 'object')
+      for (const k in body.cmdUsage) cmdUsage[String(k).slice(0, 40)] = Math.max(0, Number(body.cmdUsage[k]) || 0);
+    // 成就：去重后的 id 字符串数组
+    const achievements = Array.isArray(body.achievements)
+      ? [...new Set(body.achievements.map(a => String(a).slice(0, 40)))] : [];
+    updateUser(user.id, { progress: { levelStars, totalCmds, cmdUsage, achievements } });
     return sendJson(res, 200, { ok: true });
+  }
+
+  /* ---------- 排行榜（登录即可） ---------- */
+  if (urlPath === '/api/leaderboard' && method === 'GET') {
+    const user = requireAuth(req, res);
+    if (!user) return;
+    const rows = getUsers().map(u => {
+      const ls = u.progress?.levelStars || [];
+      return {
+        id: u.id, username: u.username,
+        stars: ls.reduce((a, b) => a + b, 0),
+        done: ls.filter(s => s > 0).length,
+        totalCmds: u.progress?.totalCmds || 0,
+      };
+    }).sort((a, b) => b.stars - a.stars || a.totalCmds - b.totalCmds || b.done - a.done);
+    const myRank = rows.findIndex(r => r.id === user.id) + 1;
+    return sendJson(res, 200, { leaderboard: rows.slice(0, 10), myRank });
   }
 
   /* ---------- 管理（仅 admin） ---------- */

@@ -24,6 +24,11 @@ function after(mutated) {
   if (app.afterCommand) app.afterCommand(mutated);
 }
 
+// 记录命令使用频次（用于个人统计）
+function track(name) {
+  app.cmdUsage[name] = (app.cmdUsage[name] || 0) + 1;
+}
+
 export function execute(input) {
   input = input.trim(); if (!input) return;
   printCmd(input);
@@ -35,6 +40,7 @@ export function execute(input) {
     let content = em[1].trim().replace(/^["']|["']$/g, '');
     const append = em[2] === '>>', f = em[3];
     G.files[f] = append ? (G.files[f] || '') + content + '\n' : content + '\n';
+    track('echo');
     print(`已${append ? '追加到' : '写入'} ${f}`, 'out'); sfxClick(); after(true); return;
   }
 
@@ -54,9 +60,11 @@ export function execute(input) {
   const fn = {
     status: cmdStatus, add: cmdAdd, commit: cmdCommit, log: cmdLog, diff: cmdDiff, branch: cmdBranch,
     switch: cmdSwitch, checkout: cmdSwitch, merge: cmdMerge, reset: cmdReset, restore: cmdRestore,
-    stash: cmdStash, tag: cmdTag, show: cmdShow, 'cherry-pick': cmdCherryPick, rebase: cmdRebase
+    stash: cmdStash, tag: cmdTag, show: cmdShow, 'cherry-pick': cmdCherryPick, rebase: cmdRebase,
+    revert: cmdRevert, reflog: cmdReflog
   }[sub];
   if (!fn) return print(`git ${sub}: 暂不支持`, 'err');
+  track('git ' + sub);
   fn(rest);
 }
 
@@ -105,6 +113,7 @@ function cmdCommit(rest) {
     const id = G.newId();
     G.commits[id] = { id, msg: msg || `Merge branch '${mp.branch}'`, parents: [mp.ourHead, mp.target], tree: G.snap(G.index) };
     if (G.headBranch) G.branches[G.headBranch] = id;
+    G.pushReflog(id, `commit (merge): Merge branch '${mp.branch}'`);
     print(`[${G.headBranch} ${id.slice(0, 7)}] Merge branch '${mp.branch}'`, 'ok'); sfxOk(); after(true); return;
   }
   if (!changed && !amend) return print('nothing to commit, working tree clean', 'warn');
@@ -115,6 +124,7 @@ function cmdCommit(rest) {
   const id = G.newId();
   G.commits[id] = { id, msg, parents, tree: G.snap(G.index) };
   if (G.headBranch) G.branches[G.headBranch] = id; else G.HEAD = { detached: id };
+  G.pushReflog(id, `commit${amend ? ' (amend)' : ''}: ${msg}`);
   print(`[${G.headBranch || 'detached'} ${id.slice(0, 7)}] ${msg}`, 'ok'); sfxOk(); after(true);
 }
 
@@ -167,7 +177,9 @@ function cmdSwitch(rest) {
   if (!name) return print('用法: git switch <分支> 或 git switch -c <新分支>', 'err');
   if (create) { if (G.branches[name] !== undefined) return print(`fatal: 分支 '${name}' 已存在`, 'err'); G.branches[name] = G.headCommit; }
   else if (G.branches[name] === undefined) return print(`error: '${name}' 不是分支（用 -c 创建）`, 'err');
+  const from = G.headBranch || String(G.headCommit).slice(0, 7);
   G.HEAD = name; const tr = G.headTree(); G.files = G.snap(tr); G.index = G.snap(tr);
+  G.pushReflog(G.headCommit, `checkout: moving from ${from} to ${name}`);
   print(`Switched to branch '${name}'`, 'ok'); sfxClick(); after(true);
 }
 
@@ -187,6 +199,7 @@ function cmdMerge(rest) {
   if (G.isAncestor(cur, target)) {
     if (G.headBranch) G.branches[G.headBranch] = target;
     G.files = G.snap(G.commits[target].tree); G.index = G.snap(G.commits[target].tree);
+    G.pushReflog(target, `merge ${name}: Fast-forward`);
     print(`Updating ${String(cur).slice(0, 7)}..${target.slice(0, 7)}`, 'out'); print('Fast-forward', 'ok');
     sfxOk(); after(true); return;
   }
@@ -208,6 +221,7 @@ function cmdMerge(rest) {
   G.commits[id] = { id, msg: `Merge branch '${name}'`, parents: [cur, target], tree };
   if (G.headBranch) G.branches[G.headBranch] = id;
   G.files = G.snap(tree); G.index = G.snap(tree);
+  G.pushReflog(id, `merge ${name}: Merge made by the 'ort' strategy.`);
   print(`Merge made by the 'ort' strategy.`, 'ok'); sfxOk(); after(true);
 }
 
@@ -220,6 +234,7 @@ function cmdReset(rest) {
   if (G.headBranch) G.branches[G.headBranch] = target; else G.HEAD = { detached: target };
   if (mode === '--mixed' || mode === '--hard') G.index = G.snap(tree);
   if (mode === '--hard') G.files = G.snap(tree);
+  G.pushReflog(target, `reset (${mode.replace('--', '')}): moving to ${args[0] || 'HEAD'}`);
   print(`HEAD 已移动到 ${target ? target.slice(0, 7) : '(root)'}`, 'warn'); after(true);
 }
 
@@ -288,6 +303,7 @@ function cmdCherryPick(rest) {
   G.commits[nid] = { id: nid, msg: c.msg, parents: [G.headCommit], tree };
   if (G.headBranch) G.branches[G.headBranch] = nid;
   G.files = G.snap(tree); G.index = G.snap(tree);
+  G.pushReflog(nid, `cherry-pick: ${c.msg}`);
   print(`[${G.headBranch} ${nid.slice(0, 7)}] ${c.msg}`, 'ok'); sfxOk(); after(true);
 }
 
@@ -310,6 +326,7 @@ function cmdRebase(rest) {
     for (const f in pTree) if (cm.tree[f] === undefined) delete tree[f];
     const nid = G.newId();
     G.commits[nid] = { id: nid, msg: cm.msg, parents: [base], tree };
+    G.pushReflog(nid, `rebase (pick): ${cm.msg}`);
     base = nid;
   }
   if (G.headBranch) G.branches[G.headBranch] = base;
@@ -317,10 +334,35 @@ function cmdRebase(rest) {
   print(`Successfully rebased and updated refs/heads/${G.headBranch}.`, 'ok'); sfxOk(); after(true);
 }
 
+function cmdRevert(rest) {
+  const id = G.resolve(rest[0] || 'HEAD');
+  if (id === undefined) return print(`fatal: 无法解析 '${rest[0] || 'HEAD'}'`, 'err');
+  const c = G.commits[id];
+  if (c.parents.length > 1) return print('error: 暂不支持 revert 合并提交（需指定 -m 主线）', 'err');
+  const parentTree = c.parents[0] ? G.commits[c.parents[0]].tree : {};
+  // 逆向差异：该提交新增的删掉、修改/删除的恢复为父提交版本
+  const tree = G.snap(G.headTree());
+  for (const f in c.tree) if (c.tree[f] !== parentTree[f]) delete tree[f];
+  for (const f in parentTree) if (c.tree[f] === undefined) tree[f] = parentTree[f];
+  const nid = G.newId();
+  const msg = `Revert "${c.msg}"`;
+  G.commits[nid] = { id: nid, msg, parents: [G.headCommit], tree };
+  if (G.headBranch) G.branches[G.headBranch] = nid;
+  G.files = G.snap(tree); G.index = G.snap(tree);
+  G.pushReflog(nid, `revert: ${msg}`);
+  print(`[${G.headBranch} ${nid.slice(0, 7)}] ${msg}`, 'ok'); sfxOk(); after(true);
+}
+
+function cmdReflog() {
+  if (!G.reflog.length) return print('(reflog 为空)', 'out');
+  G.reflog.forEach((r, i) =>
+    print(`${String(r.hash).slice(0, 7)} HEAD@{${i}}: ${r.action}`, 'info'));
+}
+
 function showHelp() {
   ['── 文件 ──', '  echo "内容" > 文件   /   echo "内容" >> 文件', '  ls · cat 文件 · rm 文件', '── Git ──',
     '  git status · git diff · git log [--oneline] [分支]', '  git add <文件|.> · git commit -m "信息" [--amend --no-edit]',
     '  git branch [名|-d] · git switch <分支|-c 新分支>', '  git merge <分支> [--abort] · git rebase <分支> · git cherry-pick <提交>',
-    '  git reset [--hard|--soft] HEAD~n · git restore [--staged] <文件>', '  git stash [list|pop] · git tag [名称] · git show [提交]', '  clear 清屏'
+    '  git reset [--hard|--soft] HEAD~n · git restore [--staged] <文件>', '  git revert <提交> · git reflog · git stash [list|pop] · git tag [名称] · git show [提交]', '  clear 清屏'
   ].forEach(l => print(l, 'info'));
 }

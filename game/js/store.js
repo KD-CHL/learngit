@@ -9,10 +9,10 @@ const LS_KEY = 'gitgame';
 export function saveProgress() {
   // 本地缓存（离线兜底）
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ levelStars: app.levelStars, totalCmds: app.totalCmds }));
+    localStorage.setItem(LS_KEY, JSON.stringify({ levelStars: app.levelStars, totalCmds: app.totalCmds, cmdUsage: app.cmdUsage, unlockedAch: app.unlockedAch }));
   } catch (e) { /* 隐私模式等场景下忽略 */ }
   // 同步到后端（静默，失败不影响游戏）
-  saveRemoteProgress(app.levelStars, app.totalCmds);
+  saveRemoteProgress(app.levelStars, app.totalCmds, app.cmdUsage, app.unlockedAch);
 }
 
 // user 为 /api/auth/me 返回的当前用户（含 progress）；优先用后端进度
@@ -22,6 +22,8 @@ export function loadProgress(user) {
   if (remote) {
     app.levelStars = remote.levelStars.slice(0, LEVELS.length);
     app.totalCmds = remote.totalCmds || 0;
+    app.cmdUsage = remote.cmdUsage || {};
+    app.unlockedAch = remote.achievements || [];
     return;
   }
   // 回退：本地缓存
@@ -30,6 +32,8 @@ export function loadProgress(user) {
     if (d) {
       app.levelStars = d.levelStars || app.levelStars;
       app.totalCmds = d.totalCmds || 0;
+      app.cmdUsage = d.cmdUsage || {};
+      app.unlockedAch = d.unlockedAch || [];
     }
   } catch (e) { /* 忽略 */ }
 }

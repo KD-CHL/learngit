@@ -7,6 +7,17 @@ import { render, updateCmdCount } from './render.js';
 import { print, esc, clearTerm } from './terminal.js';
 import { sfxClick, sfxWin, confettiBurst } from './effects.js';
 import { saveProgress, unlockedCount } from './store.js';
+import { detectNewAchievements, unlockedCountAch } from './achievements.js';
+
+// 顶部轻提示（成就解锁等）
+let toastTimer = null;
+export function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.innerHTML = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
 
 // 命令执行后的统一回调：渲染面板，必要时检查过关
 app.afterCommand = (shouldCheck) => {
@@ -32,6 +43,8 @@ export function renderHome() {
   document.getElementById('statCmds').textContent = app.totalCmds;
   document.getElementById('totalStars').textContent = stars;
   document.getElementById('maxStars').textContent = LEVELS.length * 3;
+  const achEl = document.getElementById('achCount');
+  if (achEl) achEl.textContent = `已解锁 ${unlockedCountAch()} 枚`;
   const stages = [...new Set(LEVELS.map(l => l.stage))];
   let html = '';
   stages.forEach(st => {
@@ -116,6 +129,12 @@ export function checkLevel() {
     const s = starsFor(app.cmdCount, lv.par);
     app.levelStars[app.currentLevel] = Math.max(app.levelStars[app.currentLevel], s);
     app.totalCmds += app.cmdCount; saveProgress();
+    // 过关后检测新成就
+    const fresh = detectNewAchievements();
+    if (fresh.length) {
+      saveProgress();
+      fresh.forEach((a, i) => setTimeout(() => showToast(`🎖️ 解锁成就「${a.icon} ${a.title}」`), 900 + i * 1400));
+    }
     setTimeout(() => showModal(lv, s), 380);
   }
 }

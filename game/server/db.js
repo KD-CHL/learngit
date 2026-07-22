@@ -67,6 +67,22 @@ export function findUserByUsername(username) {
 }
 export function findUserById(id) { return users.find(u => u.id === id); }
 
+export function findUserByGithubId(githubId) { return users.find(u => u.githubId === githubId); }
+
+// GitHub OAuth 用户：无密码（随机哈希占位），以 githubId 关联
+export function createGithubUser(username, githubId) {
+  const { salt, hash } = hashPassword(crypto.randomBytes(24).toString('hex'));
+  const user = {
+    id: 'u_' + crypto.randomBytes(8).toString('hex'),
+    username, salt, hash, role: 'player',
+    githubId, createdAt: Date.now(),
+    progress: { levelStars: [], totalCmds: 0 },
+  };
+  users.push(user);
+  saveUsers();
+  return user;
+}
+
 export function createUser(username, password, role = 'player') {
   const { salt, hash } = hashPassword(password);
   const user = {

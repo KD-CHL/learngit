@@ -24,12 +24,17 @@
 <div id="screen-home">
   <div class="home-hero">
     <h1>像玩游戏一样学会 Git</h1>
-    <p>在模拟终端里敲真实的 git 命令，右侧实时可视化分支图，14 关带你从提交走到变基与冲突解决</p>
+    <p>在模拟终端里敲真实的 git 命令，右侧实时可视化分支图，17 关带你从提交走到变基、冲突解决与 reflog 救援</p>
     <div class="home-stats">
       <div class="stat"><b id="statDone">0</b><span>已通关</span></div>
       <div class="stat"><b id="statStars">0</b><span>获得星星</span></div>
       <div class="stat"><b id="statCmds">0</b><span>累计命令</span></div>
       <button class="sandbox-btn" onclick="startSandbox()">🧪 自由模式</button>
+    </div>
+    <div class="feature-row">
+      <button class="feature-card" onclick="openLeaderboard()"><span class="fc-icon">🏆</span><b>排行榜</b><span class="fc-sub">看看谁最强</span></button>
+      <button class="feature-card" onclick="openStats()"><span class="fc-icon">📊</span><b>个人统计</b><span class="fc-sub">我的练习数据</span></button>
+      <button class="feature-card" onclick="openAchievements()"><span class="fc-icon">🎖️</span><b>成就墙</b><span class="fc-sub" id="achCount">已解锁 0 枚</span></button>
     </div>
   </div>
   <div id="levelList"></div>
@@ -103,6 +108,36 @@
     <h2>📖 Git 命令速查表</h2>
     <div class="sh-sub">游戏内支持的命令 · 与真实 git 行为一致</div>
     <div class="sheet-grid" id="sheetGrid"></div>
+  </div>
+</div>
+
+<!-- 排行榜 -->
+<div class="overlay" id="lbOverlay" onclick="if(event.target===this)closeLeaderboard()">
+  <div class="modal panel-modal">
+    <button class="close-x" onclick="closeLeaderboard()">✕</button>
+    <h2>🏆 排行榜</h2>
+    <div class="sh-sub">按星星总数排名 · 星同则命令少者在前</div>
+    <div id="lbBody" class="pm-body"></div>
+  </div>
+</div>
+
+<!-- 个人统计 -->
+<div class="overlay" id="statsOverlay" onclick="if(event.target===this)closeStats()">
+  <div class="modal panel-modal">
+    <button class="close-x" onclick="closeStats()">✕</button>
+    <h2>📊 个人统计</h2>
+    <div class="sh-sub" id="statsUser"></div>
+    <div id="statsBody" class="pm-body"></div>
+  </div>
+</div>
+
+<!-- 成就墙 -->
+<div class="overlay" id="achOverlay" onclick="if(event.target===this)closeAchievements()">
+  <div class="modal panel-modal">
+    <button class="close-x" onclick="closeAchievements()">✕</button>
+    <h2>🎖️ 成就墙</h2>
+    <div class="sh-sub" id="achSub"></div>
+    <div id="achBody" class="pm-body ach-grid"></div>
   </div>
 </div>
 

@@ -11,6 +11,9 @@ import {
   toggleHint, closeModal, nextLevel, renderSheet, toggleSheet,
 } from './ui.js';
 import { initInput, applySuggest } from './input.js';
+import {
+  openLeaderboard, closeLeaderboard, openStats, closeStats, openAchievements, closeAchievements,
+} from './panels.js';
 
 // 按关卡数初始化进度数组
 app.levelStars = new Array(LEVELS.length).fill(0);
@@ -53,4 +56,5 @@ Object.assign(window, {
   goHome, toggleSheet, toggleSound, restartLevel, toggleHint,
   closeModal, nextLevel, startLevel, startSandbox, applySuggest,
   gameLogout,
+  openLeaderboard, closeLeaderboard, openStats, closeStats, openAchievements, closeAchievements,
 });

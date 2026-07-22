@@ -11,6 +11,8 @@ export const app = {
   levelStars: [],        // 每关星级 0-3，启动时按关卡数初始化
   levelDoneFlags: [],    // 本关是否已通关（防重复弹窗）
   totalCmds: 0,          // 累计命令数
+  cmdUsage: {},          // 命令使用频次 {命令: 次数}
+  unlockedAch: [],       // 已解锁成就 id 列表
   soundOn: true,
   sandbox: false,        // 自由模式
   currentUser: null,     // 当前登录用户 {id, username, role, progress}

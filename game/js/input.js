@@ -6,7 +6,7 @@ import { toggleSheet } from './ui.js';
 
 const CMDS = ['git status', 'git add .', 'git add ', 'git commit -m ""', 'git commit --amend --no-edit', 'git log --oneline', 'git log ',
   'git diff', 'git branch', 'git branch -d ', 'git switch ', 'git switch -c ', 'git merge ', 'git merge --abort', 'git rebase ',
-  'git cherry-pick ', 'git reset --hard HEAD~1', 'git restore ', 'git restore --staged ', 'git stash', 'git stash pop', 'git stash list',
+  'git cherry-pick ', 'git reset --hard HEAD~1', 'git revert ', 'git reflog', 'git restore ', 'git restore --staged ', 'git stash', 'git stash pop', 'git stash list',
   'git tag ', 'git show', 'echo "" > ', 'ls', 'cat ', 'clear', 'help'];
 
 let input, sg;

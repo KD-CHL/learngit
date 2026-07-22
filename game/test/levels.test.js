@@ -53,14 +53,19 @@ const SOLUTIONS = [
   ['git merge other', 'echo "resolved content" > story.txt', 'git add story.txt', 'git commit -m "merge: resolve conflict"'],
   ['echo "wip" >> hello.txt', 'git stash', 'git stash pop'],
   ['git tag v1.0.0'],
+  ['git revert HEAD'],
+  // reflog 关卡：丢失提交的 hash 是动态的，用函数从引擎状态里找出来
+  G => ['git reflog', `git reset --hard ${Object.keys(G.commits).find(id => G.commits[id].msg === 'important work').slice(0, 7)}`],
+  ['git reset --soft HEAD~2', 'git commit -m "feat: complete feature"'],
 ];
 
 let pass = 0, fail = 0;
 LEVELS.forEach((lv, i) => {
-  const sol = SOLUTIONS[i];
-  if (!sol) { console.error(`✗ 第 ${i + 1} 关 缺少题解`); fail++; return; }
+  const raw = SOLUTIONS[i];
+  if (!raw) { console.error(`✗ 第 ${i + 1} 关 缺少题解`); fail++; return; }
   lv.setup(G);
   G.used = new Set();
+  const sol = typeof raw === 'function' ? raw(G) : raw;
   for (const cmd of sol) execute(cmd);
   const ok = lv.check(G);
   // 顺带冒烟测试图谱渲染不抛错

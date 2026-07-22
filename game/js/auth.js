@@ -47,9 +47,9 @@ export async function getMe() {
   catch { setToken(null); return null; }
 }
 
-export async function saveRemoteProgress(levelStars, totalCmds) {
+export async function saveRemoteProgress(levelStars, totalCmds, cmdUsage, achievements) {
   if (!getToken()) return;
-  try { await api('/api/progress', { method: 'POST', body: { levelStars, totalCmds } }); }
+  try { await api('/api/progress', { method: 'POST', body: { levelStars, totalCmds, cmdUsage, achievements } }); }
   catch { /* 离线/未登录时静默 */ }
 }
 
