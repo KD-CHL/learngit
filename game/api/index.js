@@ -1,5 +1,6 @@
-// Vercel Functions 入口 —— catch-all 包装现有 handleApi
-// 路由：/api/* 全部进入本函数（Root Directory = game/）
+// Vercel Functions 入口 —— 包装现有 handleApi
+// 路由：vercel.json 的 rewrites 把 /api/* 全部汇聚到本函数（api/index.js，路由 /api），
+// req.url 保留原始请求路径（如 /api/auth/me），handleApi 按原样解析。
 // 生命周期：hydrate()（从 Upstash Redis 载入）→ handleApi → persist()（写回 Redis）
 //
 // 关键点：
