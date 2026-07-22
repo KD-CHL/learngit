@@ -132,6 +132,26 @@ npm run test:levels   # 只跑关卡
 npm run test:auth     # 只跑认证 API（自动用隔离的临时数据目录）
 ```
 
+## 云端部署（Vercel）
+
+项目采用**双存储模式**，同一份代码本地与云端通用：
+
+| 环境 | 存储 | 说明 |
+|------|------|------|
+| 本地 `node server.js` | `data/*.json` 文件 | 零依赖，改动即写盘 |
+| Vercel Functions | Upstash Redis | 检测到 `UPSTASH_REDIS_REST_URL/TOKEN` 自动启用 |
+
+- `api/[[...path]].js`：Vercel catch-all 函数，包装 `handleApi`，每个请求 `hydrate() → 处理 → persist()`
+- `server/redis.js`：`@upstash/redis` 客户端（动态 import，本地不安装也能跑）
+- 部署时 Vercel 项目 **Root Directory 设为 `game/`**，自动识别 `api/` 目录
+
+部署步骤：
+
+1. 在 [Upstash Console](https://console.upstash.com) 创建免费 Redis 数据库，复制 REST URL 与 Token
+2. Vercel 新建项目 → 导入 `KD-CHL/learngit` → Root Directory 填 `game`
+3. 添加环境变量：`UPSTASH_REDIS_REST_URL`、`UPSTASH_REDIS_REST_TOKEN`（线上 GitHub 登录还需 `GITHUB_CLIENT_ID/SECRET`）
+4. 部署后每次 `git push` 自动同步上线
+
 ## 支持的 git 命令
 
 `status` `add` `commit (--amend --no-edit)` `log` `diff` `branch` `switch/checkout` `merge (--abort)` `rebase` `cherry-pick` `reset (--hard/--soft)` `revert` `reflog` `restore (--staged)` `stash` `tag` `show`，以及 `echo > / >>`、`ls`、`cat`、`rm`、`clear`。

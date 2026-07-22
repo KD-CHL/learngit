@@ -1,18 +1,30 @@
-// 数据层 —— 用户 / 会话的 JSON 文件持久化（零依赖，仅用 Node 内置模块）
-// 数据存放在 game/data/ 目录，首次启动自动创建并写入默认管理员账号。
+// 数据层 —— 用户 / 会话持久化
+// 双存储模式：
+//   - 本地开发：JSON 文件（game/data/，零依赖，仅用 Node 内置模块）
+//   - 云端 Vercel：Upstash Redis（配置 UPSTASH_REDIS_REST_URL/TOKEN 后自动启用）
+// serverless 环境下文件系统是临时的，因此每个请求先 hydrate()（读 Redis），
+// 处理完后 persist()（写回 Redis）。本地文件模式则保持"改动即写盘"。
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { kvGet, kvSet } from './redis.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const DATA_DIR = process.env.GITGAME_DATA_DIR || path.join(__dirname, '..', 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 
-// 内存缓存，启动时从磁盘加载
+// 是否启用 Redis（云端）存储
+export const useRedis = Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
+const R_USERS = 'gitgame:users';
+const R_SESSIONS = 'gitgame:sessions';
+
+// 内存缓存 + 脏标记（Redis 模式下延迟到 persist() 统一写回）
 let users = [];
 let sessions = {};
+let usersDirty = false;
+let sessionsDirty = false;
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -60,7 +72,10 @@ export function loadUsers() {
   return users;
 }
 
-export function saveUsers() { writeJson(USERS_FILE, users); }
+export function saveUsers() {
+  if (useRedis) { usersDirty = true; return; } // 云端：延迟到 persist() 写回
+  writeJson(USERS_FILE, users);
+}
 export function getUsers() { return users; }
 export function findUserByUsername(username) {
   return users.find(u => u.username.toLowerCase() === String(username).toLowerCase());
@@ -130,7 +145,10 @@ export function loadSessions() {
   return sessions;
 }
 
-export function saveSessions() { writeJson(SESSIONS_FILE, sessions); }
+export function saveSessions() {
+  if (useRedis) { sessionsDirty = true; return; } // 云端：延迟到 persist() 写回
+  writeJson(SESSIONS_FILE, sessions);
+}
 
 function pruneSessions() {
   const now = Date.now();
@@ -155,4 +173,31 @@ export function getSession(token) {
 
 export function destroySession(token) {
   if (sessions[token]) { delete sessions[token]; saveSessions(); }
+}
+
+/* ============ serverless 生命周期（Vercel） ============ */
+// 每个请求开始时调用：把全量数据载入内存
+export async function hydrate() {
+  if (!useRedis) { loadUsers(); loadSessions(); return; }
+  users = (await kvGet(R_USERS)) || [];
+  sessions = (await kvGet(R_SESSIONS)) || {};
+  // 首次运行：写入默认管理员 admin / admin123
+  if (!users.some(u => u.role === 'admin')) {
+    const { salt, hash } = hashPassword('admin123');
+    users.push({
+      id: 'u_' + crypto.randomBytes(8).toString('hex'),
+      username: 'admin', salt, hash, role: 'admin',
+      createdAt: Date.now(),
+      progress: { levelStars: [], totalCmds: 0 },
+    });
+    usersDirty = true;
+  }
+  pruneSessions();
+}
+
+// 请求结束时调用：把脏数据写回存储（Redis 模式）
+export async function persist() {
+  if (!useRedis) return; // 文件模式已在每次改动时写盘
+  if (usersDirty) { await kvSet(R_USERS, users); usersDirty = false; }
+  if (sessionsDirty) { await kvSet(R_SESSIONS, sessions); sessionsDirty = false; }
 }
