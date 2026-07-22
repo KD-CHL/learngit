@@ -21,7 +21,10 @@ export default async function handler(req, res) {
   // 避免回退到文件模式在只读文件系统上崩溃
   if (process.env.VERCEL && !useRedis) {
     res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify({ error: '云端数据库未配置：请在 Vercel 环境变量中设置 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN' }));
+    res.end(JSON.stringify({
+      error: '云端数据库未配置：请在 Vercel 环境变量中设置 UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN',
+      path: (req.url || '/').split('?')[0],
+    }));
     return;
   }
   // 确保 persist() 在响应 flush 前完成（只挂一次）
